@@ -1,6 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
-from main import app
+from main import app, startup_event
 
 client = TestClient(app)
 
@@ -9,6 +9,12 @@ TEST_USER = {
     "username": "Lakshk",
     "password": "Lakshk@257"
 }
+
+@pytest.fixture(autouse=True)
+def setup_database():
+    """Ensure database tables are created before each test"""
+    import asyncio
+    asyncio.run(startup_event())
 
 def test_login():
     login_data = {"username": TEST_USER["username"], "password": TEST_USER["password"]}

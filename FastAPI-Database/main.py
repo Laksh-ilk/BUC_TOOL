@@ -197,8 +197,18 @@ def login(user: UserReg):
     if not result:
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
-    # Since passwords are stored in plain text for now, do a direct comparison
-    if user.password != result[2]:  # result[2] is the stored plain text password
+    # Handle both plain text and hashed passwords for backward compatibility
+    stored_password = result[2]
+    password_valid = False
+    
+    # Try to verify as hashed password first
+    try:
+        password_valid = verify_password(user.password, stored_password)
+    except:
+        # If verification fails, try direct comparison (for existing plain text passwords)
+        password_valid = (user.password == stored_password)
+    
+    if not password_valid:
         raise HTTPException(status_code=401, detail="Invalid username or password")
     
 
@@ -1942,6 +1952,15 @@ async def startup_event():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        
+        # Create test user for CI/CD
+        cursor.execute("SELECT id FROM users WHERE username = %s", ("Lakshk",))
+        if not cursor.fetchone():
+            # Create test user with hashed password
+            hashed_password = pwd_context.hash("Lakshk@257")
+            cursor.execute("INSERT INTO users (username, password_hash, email, role) VALUES (%s, %s, %s, %s)", 
+                         ("Lakshk", hashed_password, "test@example.com", "Admin"))
+            print("Test user 'Lakshk' created successfully!")
         
         connection.commit()
         print("Database tables created successfully!")
